@@ -5,10 +5,6 @@ resource "google_container_cluster" "oneshield_gke" {
   location         = var.gcp_region
   enable_autopilot = true
 
-  workload_identity_config {
-    workload_pool = "${var.gcp_project_id}.svc.id.goog"
-  }
-
   release_channel {
     channel = "REGULAR"
   }
