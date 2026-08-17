@@ -1,0 +1,32 @@
+{
+  "mcpServers": {
+    "security-rag-docs": {
+      "command": "C:/myailearn/projects/Vulnerability_management/.venv/Scripts/python.exe",
+      "args": [
+        "-m",
+        "app.mcp_rag_server"
+      ],
+      "env": {
+        "PYTHONPATH": "C:/myailearn/projects/Vulnerability_management"
+      }
+    },
+    "local-trivy-scanner": {
+      "command": "trivy",
+      "args": ["mcp", "server"],
+      "env": {
+        "TRIVY_CACHE_DIR": "C:/myailearn/projects/Vulnerability_management/.trivy_cache"
+      }
+    },
+    "github-issue-tracker": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${env:GITHUB_TOKEN}",
+        "LOCAL_WORKSPACE_PATH": "${env:LOCAL_WORKSPACE_PATH}"
+      }
+    }
+  }
+}

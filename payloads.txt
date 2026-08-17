@@ -1,0 +1,51 @@
+SAST_Payload:
+=============
+curl -X POST "http://127.0.0.1:8000/v1/scan-handler" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "image_sha": "sha256:java_oracle_sast_investment_bank_core_run_101",
+       "domain": "InvestmentBank",
+       "scan_data": [
+         {
+           "tool": "SonarQube_SAST",
+           "issue": {
+             "ruleId": "JAVA-S2077",
+             "packageName": "com.bank.dao.AccountRepository",
+             "severity": "CRITICAL",
+             "description": "SQL Injection vulnerability: Dynamic SQL query concatenation targeting Oracle DB layers."
+           }
+         }
+       ]
+     }'
+
+CWE and CVE Payload
+===================
+
+curl -X POST "http://127.0.0.1:8000/v1/scan-handler" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "image_sha": "sha256:edge_gateway_dast_compliance_run_202",
+       "domain": "CorporateBank",
+       "scan_data": [
+         {
+           "tool": "OWASP_ZAP_DAST",
+           "alert": {
+             "ruleId": "OWASP-2021-A03:CWE-89",
+             "packageName": "/api/v1/client/profile-hydrator",
+             "severity": "HIGH",
+             "description": "Improper Input Handling leading to dynamic query context validation bypass on edge endpoints."
+           }
+         },
+         {
+           "tool": "Trivy_Edge_Scanner",
+           "vulnerability": {
+             "cveId": "CVE-2026-3001",
+             "packageName": "nginx-ingress-controller",
+             "currentVersion": "1.9.0",
+             "fixedVersion": "1.9.4",
+             "severity": "CRITICAL",
+             "description": "Remote Code Execution vulnerability in edge load balancing routing modules."
+           }
+         }
+       ]
+     }'

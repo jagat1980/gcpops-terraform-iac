@@ -1,0 +1,43 @@
+services:
+  oneshield-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: oneshield-vulnerability-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ONESHIELD_API_KEY=${ONESHIELD_API_KEY:-dev-secret-key}
+      - DATABASE_URL=postgresql://oneshield:oneshield_pass@pgvector:5432/oneshield_db
+      - REDIS_URL=redis://redis:6379/0
+      - LLM_MODEL_HIGH_REASONING=gpt-5.6-sol
+      - LLM_MODEL_WORKHORSE=gpt-5.6-terra
+      - LLM_MODEL_BUDGET=gpt-5.6-luna
+    depends_on:
+      - pgvector
+      - redis
+    restart: unless-stopped
+
+  pgvector:
+    image: pgvector/pgvector:pg16
+    container_name: oneshield-pgvector
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: oneshield_db
+      POSTGRES_USER: oneshield
+      POSTGRES_PASSWORD: oneshield_pass
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: oneshield-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+volumes:
+  pgdata:

@@ -1,0 +1,66 @@
+name: Keyless Terraform Deployment via GCP Workload Identity
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+permissions:
+  id-token: write # Required for requesting GitHub OIDC JWT token
+  contents: read
+
+jobs:
+  terraform-deploy:
+    name: Terraform Plan & Apply on GCP
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Checkout repository code
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    # 2. Keyless OIDC Authentication to GCP using Workload Identity Federation
+    - name: Authenticate to Google Cloud
+      id: auth
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: 'projects/703950286847/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+        service_account: 'oneshield-terraform-sa@project-644b97eb-9375-4ec7-82e.iam.gserviceaccount.com'
+
+    # 3. Set up Terraform CLI
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: "1.5.7"
+
+    # 4. Terraform Init
+    - name: Terraform Init
+      run: |
+        cd terraform
+        terraform init
+
+    # 5. Terraform Plan
+    - name: Terraform Plan
+      run: |
+        cd terraform
+        terraform plan \
+          -var="gcp_project_id=project-644b97eb-9375-4ec7-82e" \
+          -var="openai_api_key=${{ secrets.OPENAI_API_KEY }}" \
+          -var="oneshield_api_key=${{ secrets.ONESHIELD_API_KEY }}" \
+          -var="db_password=${{ secrets.DB_PASSWORD }}"
+
+    # 6. Terraform Apply (Runs automatically on push to main/master branch)
+    - name: Terraform Apply
+      if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name == 'push'
+      run: |
+        cd terraform
+        terraform apply -auto-approve \
+          -var="gcp_project_id=project-644b97eb-9375-4ec7-82e" \
+          -var="openai_api_key=${{ secrets.OPENAI_API_KEY }}" \
+          -var="oneshield_api_key=${{ secrets.ONESHIELD_API_KEY }}" \
+          -var="db_password=${{ secrets.DB_PASSWORD }}"
