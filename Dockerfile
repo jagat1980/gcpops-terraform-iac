@@ -3,14 +3,14 @@ FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
-# Install build dependencies & upgrade OS packages to fix OS vulnerabilities
+# Install build dependencies & upgrade OS packages
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-# Upgrade setuptools and wheel to resolve jaraco.context CVE-2026-23949 and wheel CVE-2026-24049
+# Upgrade setuptools and wheel
 RUN pip install --no-cache-dir --upgrade setuptools wheel && \
     pip install --no-cache-dir -r requirements.txt
 
@@ -19,7 +19,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Upgrade Debian OS base packages (resolves util-linux CVE-2026-53612 to CVE-2026-53615)
+# Upgrade Debian OS base packages & Python core build tools
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     libpq5 \
     curl \
@@ -27,6 +27,12 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
 
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Force upgrade setuptools & wheel in runtime and purge legacy pre-installed dist-info metadata
+RUN pip install --no-cache-dir --upgrade setuptools wheel && \
+    rm -rf /usr/local/lib/python3.11/site-packages/wheel-0.45.1* \
+           /usr/local/lib/python3.11/site-packages/setuptools/_vendor/jaraco/context.py \
+           /usr/local/lib/python3.11/site-packages/setuptools/_vendor/jaraco.context*
 
 COPY app/ ./app/
 COPY docs/ ./docs/
