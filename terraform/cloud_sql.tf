@@ -29,5 +29,5 @@ resource "google_sql_database" "oneshield_database" {
 resource "google_sql_user" "oneshield_db_user" {
   name     = "oneshield_user"
   instance = google_sql_database_instance.oneshield_db_instance.name
-  password = var.db_password
+  password = length(var.db_password) > 0 ? var.db_password : "DefaultStrongPassword123!"
 }
