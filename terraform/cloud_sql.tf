@@ -6,7 +6,9 @@ resource "google_sql_database_instance" "oneshield_db_instance" {
   region           = var.gcp_region
 
   settings {
-    tier = "db-custom-2-7680" # 2 vCPU, 7.5GB RAM
+    # Right-sized for cost efficiency (1 vCPU, 3.75GB RAM — 50% cost reduction)
+    # For Dev/POC testing, tier = "db-f1-micro" cuts cost by 85% (~$7.50/mo)
+    tier = "db-custom-1-3840"
 
     backup_configuration {
       enabled    = true
