@@ -36,43 +36,49 @@ jobs:
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v2
 
-    # 4. Configure Docker CLI to authenticate with Google Artifact Registry
+    # 4. Setup Helm CLI for Automated In-Cluster Tooling
+    - name: Set up Helm
+      uses: azure/setup-helm@v4
+      with:
+        version: 'v3.14.0'
+
+    # 5. Configure Docker CLI to authenticate with Google Artifact Registry
     - name: Configure Docker for GCP Artifact Registry
       run: |
         gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
 
-    # 5. Build Local Container Image for Scanning & Deployment
+    # 6. Build Local Container Image for Scanning & Deployment
     - name: Build Docker Image
       run: |
         docker build -t oneshield-api:local \
                      -t us-central1-docker.pkg.dev/project-644b97eb-9375-4ec7-82e/oneshield-repo/oneshield-api:latest \
                      -t us-central1-docker.pkg.dev/project-644b97eb-9375-4ec7-82e/oneshield-repo/oneshield-api:${{ github.sha }} .
 
-    # 🛡️ 6. TRIVY AUTOMATED CONTAINER VULNERABILITY SCAN (DevSecOps Quality Gate)
-    - name: Run Trivy Vulnerability Scanner on Built Image
+    # 🛡️ 7. TRIVY STRICT PRE-PUSH POLICY ENFORCEMENT (Fails Build if HIGH/CRITICAL Vulnerabilities Found)
+    - name: Run Trivy Pre-Push Security Scan Gate
       uses: aquasecurity/trivy-action@master
       with:
         image-ref: 'oneshield-api:local'
         format: 'table'
-        exit-code: '0'
+        exit-code: '1'
         ignore-unfixed: true
         vuln-type: 'os,library'
         severity: 'HIGH,CRITICAL'
 
-    # 7. Push Verified Container Image to Google Artifact Registry
+    # 8. Push Verified Container Image to Google Artifact Registry
     - name: Push Image to Artifact Registry
       run: |
         docker push us-central1-docker.pkg.dev/project-644b97eb-9375-4ec7-82e/oneshield-repo/oneshield-api:latest
         docker push us-central1-docker.pkg.dev/project-644b97eb-9375-4ec7-82e/oneshield-repo/oneshield-api:${{ github.sha }}
 
-    # 8. Get GKE Cluster Credentials
+    # 9. Get GKE Cluster Credentials
     - name: Get GKE Credentials
       uses: google-github-actions/get-gke-credentials@v2
       with:
         cluster_name: 'oneshield-gke-cluster'
         location: 'us-central1'
 
-    # 9. Create Kubernetes Secret for Application API Keys
+    # 10. Create Kubernetes Secret for Application API Keys
     - name: Create Kubernetes Secrets
       run: |
         kubectl create secret generic oneshield-secrets \
@@ -80,12 +86,32 @@ jobs:
           --from-literal=OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
           --dry-run=client -o yaml | kubectl apply -f -
 
-    # 10. Deploy Cloud Armor WAF BackendConfig, Ingress, Hardened Manifests & NetworkPolicies to GKE
-    - name: Deploy Manifests to GKE
+    # 🔄 11. AUTOMATED HELM DEPLOYMENT: Pillar 3 (Trivy-Operator) & Pillar 4 (Kyverno Admission Controller)
+    - name: Automated Helm Deployments (Trivy-Operator & Kyverno)
+      run: |
+        # Helm repo updates
+        helm repo add aquasecurity https://aquasecurity.github.io/helm-charts/
+        helm repo add kyverno https://kyverno.github.io/kyverno/
+        helm repo update
+
+        # Deploy/Upgrade Trivy Operator (Pillar 3: Zero-Cost In-Cluster Scan)
+        helm upgrade --install trivy-operator aquasecurity/trivy-operator \
+          --namespace trivy-system \
+          --create-namespace \
+          --set trivy.severity="HIGH,CRITICAL"
+
+        # Deploy/Upgrade Kyverno Admission Controller (Pillar 4: Keyless Attestation Verification)
+        helm upgrade --install kyverno kyverno/kyverno \
+          --namespace kyverno \
+          --create-namespace
+
+    # 12. Deploy CIS Benchmark Hardened Manifests, Cloud Armor WAF Ingress & Kyverno Security Policy
+    - name: Deploy Manifests & Security Policies to GKE
       run: |
         kubectl apply -f k8s/network-policy.yaml
         kubectl apply -f k8s/backend-config.yaml
         kubectl apply -f k8s/deployment.yaml
         kubectl apply -f k8s/service.yaml
         kubectl apply -f k8s/ingress.yaml
+        kubectl apply -f k8s/kyverno-policy.yaml
         kubectl rollout status deployment/oneshield-api-gateway --timeout=180s

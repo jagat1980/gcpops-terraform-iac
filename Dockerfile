@@ -3,21 +3,24 @@ FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install build dependencies & upgrade OS packages to fix OS vulnerabilities
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Upgrade setuptools and wheel to resolve jaraco.context CVE-2026-23949 and wheel CVE-2026-24049
+RUN pip install --no-cache-dir --upgrade setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt
 
 # Final runtime image
 FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Upgrade Debian OS base packages (resolves util-linux CVE-2026-53612 to CVE-2026-53615)
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     libpq5 \
     curl \
     && rm -rf /var/lib/apt/lists/*

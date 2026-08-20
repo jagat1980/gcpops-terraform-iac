@@ -1,0 +1,25 @@
+# k8s/kyverno-policy.yaml
+# Kyverno ClusterPolicy enforcing Keyless Sigstore Cosign OIDC Signature Verification in GKE
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-image-signature
+  namespace: default
+spec:
+  validationFailureAction: Audit # Set to 'Enforce' for strict blocking in production
+  rules:
+  - name: verify-signature
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    verifyImages:
+    - imageReferences:
+      - "us-central1-docker.pkg.dev/project-644b97eb-9375-4ec7-82e/*"
+      attestors:
+      - count: 1
+        entries:
+        - keyless:
+            issuer: "https://token.actions.githubusercontent.com"
+            subjectRegExp: "https://github.com/jagat1980/gcpops-terraform-iac/.*"
