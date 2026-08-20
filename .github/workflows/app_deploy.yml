@@ -89,7 +89,6 @@ jobs:
     # 🔄 11. AUTOMATED HELM DEPLOYMENT: Pillar 3 (Trivy-Operator) & Pillar 4 (Kyverno Admission Controller)
     - name: Automated Helm Deployments (Trivy-Operator & Kyverno)
       run: |
-        # Helm repo updates
         helm repo add aquasecurity https://aquasecurity.github.io/helm-charts/
         helm repo add kyverno https://kyverno.github.io/kyverno/
         helm repo update
@@ -100,10 +99,11 @@ jobs:
           --create-namespace \
           --set "trivy.severity=HIGH\,CRITICAL"
 
-        # Deploy/Upgrade Kyverno Admission Controller (Pillar 4: Keyless Attestation Verification)
+        # Deploy/Upgrade Kyverno Admission Controller with readiness wait
         helm upgrade --install kyverno kyverno/kyverno \
           --namespace kyverno \
-          --create-namespace
+          --create-namespace \
+          --wait --timeout 120s
 
     # 12. Deploy Security Policies & Hardened App Manifests to GKE
     - name: Deploy Security Policies & App Manifests to GKE
