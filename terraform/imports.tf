@@ -17,6 +17,16 @@ import {
 }
 
 import {
+  to = google_sql_database.oneshield_database
+  id = "projects/project-644b97eb-9375-4ec7-82e/instances/oneshield-db-instance-prod/databases/oneshield_db"
+}
+
+import {
+  to = google_sql_user.oneshield_db_user
+  id = "projects/project-644b97eb-9375-4ec7-82e/instances/oneshield-db-instance-prod/users/oneshield_user"
+}
+
+import {
   to = google_secret_manager_secret.openai_key
   id = "projects/project-644b97eb-9375-4ec7-82e/secrets/oneshield-openai-key"
 }
