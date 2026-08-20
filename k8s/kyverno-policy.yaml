@@ -4,9 +4,9 @@ apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: verify-image-signature
-  namespace: default
 spec:
-  validationFailureAction: Audit # Set to 'Enforce' for strict blocking in production
+  validationFailureAction: Audit
+  background: true
   rules:
   - name: verify-signature
     match:
@@ -17,9 +17,14 @@ spec:
     verifyImages:
     - imageReferences:
       - "us-central1-docker.pkg.dev/project-644b97eb-9375-4ec7-82e/*"
+      mutateDigest: false
+      rekor:
+        url: "https://rekor.sigstore.dev"
       attestors:
       - count: 1
         entries:
         - keyless:
             issuer: "https://token.actions.githubusercontent.com"
             subjectRegExp: "https://github.com/jagat1980/gcpops-terraform-iac/.*"
+            rekor:
+              url: "https://rekor.sigstore.dev"
