@@ -1,0 +1,90 @@
+# k8s/deployment.yaml
+# CIS Kubernetes Benchmark & NSA/CISA Compliant Pod Security Standards
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oneshield-api-gateway
+  labels:
+    app: oneshield-api-gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: oneshield-api-gateway
+  template:
+    metadata:
+      labels:
+        app: oneshield-api-gateway
+    spec:
+      # 🔒 Pod Security Context (CIS Benchmark Rule 5.2.1)
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+      - name: oneshield-api
+        image: us-central1-docker.pkg.dev/project-644b97eb-9375-4ec7-82e/oneshield-repo/oneshield-api:latest
+        imagePullPolicy: Always
+
+        # 🔒 Container Security Context (CIS Benchmark Rules 5.2.2 - 5.2.5)
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+
+        ports:
+        - containerPort: 8000
+
+        env:
+        - name: ONESHIELD_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: oneshield-secrets
+              key: ONESHIELD_API_KEY
+              optional: true
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: oneshield-secrets
+              key: OPENAI_API_KEY
+              optional: true
+
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "2000m"
+            memory: "2Gi"
+
+        # In-memory ephemeral scratch volumes for temporary file processing
+        volumeMounts:
+        - name: tmp-volume
+          mountPath: /tmp
+        - name: cache-volume
+          mountPath: /app/.cache
+
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+
+      volumes:
+      - name: tmp-volume
+        emptyDir: {}
+      - name: cache-volume
+        emptyDir: {}

@@ -1,0 +1,17 @@
+# k8s/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: oneshield-api-service
+  namespace: default
+  annotations:
+    # 🔒 Attach BackendConfig (Cloud Armor WAF Protection)
+    cloud.google.com/backend-config: '{"default": "oneshield-backend-config"}'
+spec:
+  type: NodePort # NodePort required for GCP External HTTP(S) Load Balancer & Cloud Armor
+  selector:
+    app: oneshield-api-gateway
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP

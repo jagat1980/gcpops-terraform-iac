@@ -1,0 +1,68 @@
+# k8s/network-policy.yaml
+# CIS Kubernetes Benchmark & NSA/CISA Security Hardening NetworkPolicies
+
+---
+# 🔒 1. Default Deny All Ingress & Egress Traffic (Zero Trust Baseline)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: default
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+
+---
+# 🛡️ 2. Allow Ingress Traffic to Gateway & Egress to Authorized Services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: oneshield-api-network-policy
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: oneshield-api-gateway
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow incoming HTTP traffic from LoadBalancer / Ingress Controller on Port 8000
+  - from: []
+    ports:
+    - protocol: TCP
+      port: 8000
+
+  egress:
+  # Allow DNS resolution to CoreDNS / kube-dns (Port 53)
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+
+  # Allow HTTPS Outbound to OpenAI, FIRST EPSS API, CISA KEV Feed (Port 443)
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+    ports:
+    - protocol: TCP
+      port: 443
+
+  # Allow Database Access to Cloud SQL / PostgreSQL (Port 5432)
+  - ports:
+    - protocol: TCP
+      port: 5432
+
+  # Allow Cache Access to Redis (Port 6379)
+  - ports:
+    - protocol: TCP
+      port: 6379

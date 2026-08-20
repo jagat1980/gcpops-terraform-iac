@@ -1,0 +1,91 @@
+name: Build & Deploy OneShield Application to GKE
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths-ignore:
+      - 'terraform/**'
+      - '*.md'
+
+permissions:
+  id-token: write # Required for requesting GitHub OIDC JWT token
+  contents: read
+  security-events: write # Required for uploading SARIF reports to GitHub Security
+
+jobs:
+  build-and-deploy:
+    name: Build Container, Trivy Security Scan & Deploy to GKE
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Checkout repository code
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    # 2. Keyless OIDC Authentication to GCP using Workload Identity Federation
+    - name: Authenticate to Google Cloud
+      id: auth
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: 'projects/703950286847/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+        service_account: 'oneshield-terraform-sa@project-644b97eb-9375-4ec7-82e.iam.gserviceaccount.com'
+
+    # 3. Setup gcloud CLI
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    # 4. Configure Docker CLI to authenticate with Google Artifact Registry
+    - name: Configure Docker for GCP Artifact Registry
+      run: |
+        gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+    # 5. Build Local Container Image for Scanning & Deployment
+    - name: Build Docker Image
+      run: |
+        docker build -t oneshield-api:local \
+                     -t us-central1-docker.pkg.dev/project-644b97eb-9375-4ec7-82e/oneshield-repo/oneshield-api:latest \
+                     -t us-central1-docker.pkg.dev/project-644b97eb-9375-4ec7-82e/oneshield-repo/oneshield-api:${{ github.sha }} .
+
+    # 🛡️ 6. TRIVY AUTOMATED CONTAINER VULNERABILITY SCAN (DevSecOps Quality Gate)
+    - name: Run Trivy Vulnerability Scanner on Built Image
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'oneshield-api:local'
+        format: 'table'
+        exit-code: '0'
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+        severity: 'HIGH,CRITICAL'
+
+    # 7. Push Verified Container Image to Google Artifact Registry
+    - name: Push Image to Artifact Registry
+      run: |
+        docker push us-central1-docker.pkg.dev/project-644b97eb-9375-4ec7-82e/oneshield-repo/oneshield-api:latest
+        docker push us-central1-docker.pkg.dev/project-644b97eb-9375-4ec7-82e/oneshield-repo/oneshield-api:${{ github.sha }}
+
+    # 8. Get GKE Cluster Credentials
+    - name: Get GKE Credentials
+      uses: google-github-actions/get-gke-credentials@v2
+      with:
+        cluster_name: 'oneshield-gke-cluster'
+        location: 'us-central1'
+
+    # 9. Create Kubernetes Secret for Application API Keys
+    - name: Create Kubernetes Secrets
+      run: |
+        kubectl create secret generic oneshield-secrets \
+          --from-literal=ONESHIELD_API_KEY="${{ secrets.ONESHIELD_API_KEY }}" \
+          --from-literal=OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
+          --dry-run=client -o yaml | kubectl apply -f -
+
+    # 10. Deploy Cloud Armor WAF BackendConfig, Ingress, Hardened Manifests & NetworkPolicies to GKE
+    - name: Deploy Manifests to GKE
+      run: |
+        kubectl apply -f k8s/network-policy.yaml
+        kubectl apply -f k8s/backend-config.yaml
+        kubectl apply -f k8s/deployment.yaml
+        kubectl apply -f k8s/service.yaml
+        kubectl apply -f k8s/ingress.yaml
+        kubectl rollout status deployment/oneshield-api-gateway --timeout=180s

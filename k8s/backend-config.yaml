@@ -1,0 +1,21 @@
+# k8s/backend-config.yaml
+# Links GKE Service Backends to Google Cloud Armor WAF & Anti-DDoS Policy
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: oneshield-backend-config
+  namespace: default
+spec:
+  # Attach Google Cloud Armor WAF Security Policy
+  securityPolicy:
+    name: "oneshield-armor-policy"
+
+  # GCP Load Balancer Health Check Configuration
+  healthCheck:
+    checkIntervalSec: 15
+    timeoutSec: 5
+    healthyThreshold: 2
+    unhealthyThreshold: 3
+    type: HTTP
+    requestPath: /health
+    port: 8000
