@@ -1,6 +1,13 @@
 # terraform/main.tf
 terraform {
   required_version = ">= 1.5.0"
+
+  # 🗄️ Remote GCS State Backend (Enterprise Best Practice for GitHub Actions)
+  backend "gcs" {
+    bucket = "oneshield-tfstate-644b97eb"
+    prefix = "terraform/state"
+  }
+
   required_providers {
     google = {
       source  = "hashicorp/google"
