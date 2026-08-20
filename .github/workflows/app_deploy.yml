@@ -98,7 +98,7 @@ jobs:
         helm upgrade --install trivy-operator aquasecurity/trivy-operator \
           --namespace trivy-system \
           --create-namespace \
-          --set trivy.severity="HIGH,CRITICAL"
+          --set "trivy.severity=HIGH\,CRITICAL"
 
         # Deploy/Upgrade Kyverno Admission Controller (Pillar 4: Keyless Attestation Verification)
         helm upgrade --install kyverno kyverno/kyverno \
