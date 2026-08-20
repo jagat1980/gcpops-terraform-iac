@@ -18,8 +18,6 @@ spec:
     - imageReferences:
       - "us-central1-docker.pkg.dev/project-644b97eb-9375-4ec7-82e/*"
       mutateDigest: false
-      rekor:
-        url: "https://rekor.sigstore.dev"
       attestors:
       - count: 1
         entries:

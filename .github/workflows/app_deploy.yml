@@ -105,11 +105,11 @@ jobs:
           --namespace kyverno \
           --create-namespace
 
-    # 12. Cleanly Apply Security Policies & Hardened App Manifests to GKE
+    # 12. Deploy Security Policies & Hardened App Manifests to GKE
     - name: Deploy Security Policies & App Manifests to GKE
       run: |
         kubectl delete clusterpolicy verify-image-signature --ignore-not-found
-        kubectl apply -f k8s/kyverno-policy.yaml --server-side --overwrite
+        kubectl apply -f k8s/kyverno-policy.yaml
         kubectl apply -f k8s/network-policy.yaml
         kubectl apply -f k8s/backend-config.yaml
         kubectl apply -f k8s/deployment.yaml
