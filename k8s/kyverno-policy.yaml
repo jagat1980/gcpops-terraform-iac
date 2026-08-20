@@ -26,5 +26,3 @@ spec:
         - keyless:
             issuer: "https://token.actions.githubusercontent.com"
             subjectRegExp: "https://github.com/jagat1980/gcpops-terraform-iac/.*"
-            rekor:
-              url: "https://rekor.sigstore.dev"
