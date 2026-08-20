@@ -1,44 +1,31 @@
 # app/main.py
 import os
 import logging
-import json
-from fastapi import FastAPI, BackgroundTasks, Depends, HTTPException, Security
+from typing import List, Dict, Any, Optional
+from urllib.parse import unquote
+from dotenv import load_dotenv
+from fastapi import FastAPI, BackgroundTasks, HTTPException, Depends, Security
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
 from langchain_core.runnables import RunnableConfig
-
-# ==============================================================================
-# 🔌 NATIVE AUTOMATED .ENV FILE INGESTION LAYER
-# ==============================================================================
-from dotenv import load_dotenv
-load_dotenv()
 
 from app.schemas import AgentState
 from app.graph import app_orchestration_agent
 
-# JSON / Structured logging setup
-class JSONLogFormatter(logging.Formatter):
-    def format(self, record):
-        log_entry = {
-            "timestamp": self.formatTime(record),
-            "level": record.levelname,
-            "logger": record.name,
-            "message": record.getMessage()
-        }
-        return json.dumps(log_entry)
+# Initialize environment variables
+load_dotenv()
 
-handler = logging.StreamHandler()
-handler.setFormatter(JSONLogFormatter())
-logging.basicConfig(level=logging.INFO, handlers=[handler])
+# Configure logging
 logger = logging.getLogger("vulnerability-lifecycle-gateway")
+logging.basicConfig(level=logging.INFO)
+
+# In-memory store for tracking execution results (#13)
+workflow_execution_store: Dict[str, Dict[str, Any]] = {}
 
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
-# In-memory execution store for run status tracking (#13)
-workflow_execution_store: Dict[str, Dict[str, Any]] = {}
-
 async def verify_api_key(api_key: str = Security(api_key_header)):
+    """Validates the request API key against ONESHIELD_API_KEY if configured."""
     expected_key = os.environ.get("ONESHIELD_API_KEY", "")
     if not expected_key:
         return  # No key configured = auth disabled (dev mode)
@@ -46,7 +33,7 @@ async def verify_api_key(api_key: str = Security(api_key_header)):
         raise HTTPException(status_code=403, detail="Invalid API key")
 
 app = FastAPI(
-    title="OneShield Enterprise Multi-Agent Mitigation Engine Gateway",
+    title="OneShield Vulnerability Engine Gateway",
     version="1.0.0",
     description="Multi-agent orchestration gateway for enterprise vulnerability remediation."
 )
@@ -69,12 +56,15 @@ async def health_check():
         "auth_enabled": bool(os.environ.get("ONESHIELD_API_KEY"))
     }
 
-@app.get("/v1/scan-status/{image_sha}", dependencies=[Depends(verify_api_key)])
+@app.get("/v1/scan-status/{image_sha:path}", dependencies=[Depends(verify_api_key)])
 async def get_scan_status(image_sha: str):
     """Execution status lookup endpoint (#13)."""
-    if image_sha not in workflow_execution_store:
-        raise HTTPException(status_code=404, detail=f"No execution record found for image_sha: {image_sha}")
-    return workflow_execution_store[image_sha]
+    raw_sha = unquote(image_sha)
+    if raw_sha in workflow_execution_store:
+        return workflow_execution_store[raw_sha]
+    if image_sha in workflow_execution_store:
+        return workflow_execution_store[image_sha]
+    raise HTTPException(status_code=404, detail=f"No execution record found for image_sha: {image_sha}")
 
 async def execute_agent_workflow(initial_state: AgentState):
     """Asynchronously triggers the LangGraph multi-agent orchestration pool."""
