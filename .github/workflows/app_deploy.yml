@@ -105,13 +105,13 @@ jobs:
           --namespace kyverno \
           --create-namespace
 
-    # 12. Deploy CIS Benchmark Hardened Manifests, Cloud Armor WAF Ingress & Kyverno Security Policy
-    - name: Deploy Manifests & Security Policies to GKE
+    # 12. Deploy Kyverno Audit Policy FIRST, then Hardened App Manifests to GKE
+    - name: Deploy Security Policies & App Manifests to GKE
       run: |
+        kubectl apply -f k8s/kyverno-policy.yaml
         kubectl apply -f k8s/network-policy.yaml
         kubectl apply -f k8s/backend-config.yaml
         kubectl apply -f k8s/deployment.yaml
         kubectl apply -f k8s/service.yaml
         kubectl apply -f k8s/ingress.yaml
-        kubectl apply -f k8s/kyverno-policy.yaml
         kubectl rollout status deployment/oneshield-api-gateway --timeout=180s
