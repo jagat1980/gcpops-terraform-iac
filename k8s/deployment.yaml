@@ -54,20 +54,26 @@ spec:
               name: oneshield-secrets
               key: OPENAI_API_KEY
               optional: true
+        # 🤖 Model Tier Configurations
+        - name: LLM_MODEL_HIGH_REASONING
+          value: "gpt-4o"
+        - name: LLM_MODEL_WORKHORSE
+          value: "gpt-4o-mini"
+        - name: LLM_MODEL_BUDGET
+          value: "gpt-4o-mini"
 
         resources:
           requests:
             cpu: "500m"
-            memory: "1Gi"
+            memory: "512Mi"
           limits:
-            cpu: "2000m"
-            memory: "2Gi"
+            cpu: "1000m"
+            memory: "1Gi"
 
-        # In-memory ephemeral scratch volumes for temporary file processing
         volumeMounts:
-        - name: tmp-volume
+        - name: tmp-dir
           mountPath: /tmp
-        - name: cache-volume
+        - name: cache-dir
           mountPath: /app/.cache
 
         livenessProbe:
@@ -76,6 +82,7 @@ spec:
             port: 8000
           initialDelaySeconds: 15
           periodSeconds: 20
+
         readinessProbe:
           httpGet:
             path: /health
@@ -84,7 +91,7 @@ spec:
           periodSeconds: 10
 
       volumes:
-      - name: tmp-volume
+      - name: tmp-dir
         emptyDir: {}
-      - name: cache-volume
+      - name: cache-dir
         emptyDir: {}
