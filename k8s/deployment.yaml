@@ -65,10 +65,10 @@ spec:
         resources:
           requests:
             cpu: "500m"
-            memory: "512Mi"
+            memory: "1Gi"
           limits:
             cpu: "1000m"
-            memory: "1Gi"
+            memory: "2Gi"
 
         volumeMounts:
         - name: tmp-dir
@@ -80,15 +80,19 @@ spec:
           httpGet:
             path: /health
             port: 8000
-          initialDelaySeconds: 15
-          periodSeconds: 20
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 5
 
         readinessProbe:
           httpGet:
             path: /health
             port: 8000
-          initialDelaySeconds: 10
-          periodSeconds: 10
+          initialDelaySeconds: 15
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 3
 
       volumes:
       - name: tmp-dir
