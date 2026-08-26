@@ -49,3 +49,39 @@ curl -X POST "http://127.0.0.1:8000/v1/scan-handler" \
          }
        ]
      }'
+
+
+All Payloads:
+=============
+curl -X POST http://136.69.14.97/v1/scan-handler \
+  -H "Content-Type: application/json" \
+  -d '{
+    "image_sha": "sha256:full_enterprise_audit_004",
+    "domain": "CoreBankingSystem",
+    "scan_data": [
+      {
+        "tool": "sast-sonar",
+        "issue": {
+          "ruleId": "JAVA-S2077",
+          "packageName": "com.bank.dao.AccountRepository",
+          "severity": "CRITICAL"
+        }
+      },
+      {
+        "tool": "trivy-sca",
+        "issue": {
+          "ruleId": "CVE-2023-44487",
+          "packageName": "io.netty:netty-handler",
+          "severity": "HIGH"
+        }
+      },
+      {
+        "tool": "dast-owasp-zap",
+        "issue": {
+          "ruleId": "ZAP-90033",
+          "packageName": "https://portal.bank.com/api/v1/user",
+          "severity": "HIGH"
+        }
+      }
+    ]
+  }'

@@ -16,9 +16,6 @@ from app.graph import app_orchestration_agent
 # Initialize environment variables
 load_dotenv()
 
-# Initialize GCP OpenTelemetry Cloud Trace Instrumentation
-setup_gcp_opentelemetry(app)
-
 # Configure logging
 logger = logging.getLogger("vulnerability-lifecycle-gateway")
 logging.basicConfig(level=logging.INFO)
@@ -29,7 +26,7 @@ workflow_execution_store: Dict[str, Dict[str, Any]] = {}
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 async def verify_api_key(api_key: str = Security(api_key_header)):
-    """Validates the request API key against ShiftSHIELD_API_KEY if configured."""
+    """Validates the request API key against ONESHIELD_API_KEY if configured."""
     expected_key = os.environ.get("ONESHIELD_API_KEY", "")
     if not expected_key:
         return  # No key configured = auth disabled (dev mode)
@@ -41,6 +38,9 @@ app = FastAPI(
     version="1.0.0",
     description="Multi-agent orchestration gateway for enterprise vulnerability remediation."
 )
+
+# Initialize GCP OpenTelemetry Cloud Trace Instrumentation AFTER app instantiation
+setup_gcp_opentelemetry(app)
 
 class GenericWebhookPayload(BaseModel):
     image_sha: str
