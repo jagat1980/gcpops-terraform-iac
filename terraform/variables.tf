@@ -33,3 +33,9 @@ variable "oneshield_api_key" {
   description = "Authentication API Key for incoming scan-handler webhooks."
   sensitive   = true
 }
+
+variable "access_policy_id" {
+  type        = string
+  description = "Optional GCP Access Context Manager Policy ID for VPC Service Controls."
+  default     = ""
+}

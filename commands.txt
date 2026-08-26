@@ -1,0 +1,314 @@
+1. Send a Test Payload to Your Live Ingress IP
+Send a scan payload to your GKE load balancer (http://136.69.14.97) to trigger the multi-agent graph and generate OpenTelemetry spans:
+
+curl -X POST http://136.69.14.97/v1/scan-handler \
+  -H "Content-Type: application/json" \
+  -d '{
+    "image_sha": "sha256:otel_live_test_001",
+    "domain": "CoreBankingSystem",
+    "scan_data": [
+      {
+        "tool": "sast-sonar",
+        "issue": {
+          "ruleId": "JAVA-S2077",
+          "packageName": "com.bank.dao.AccountRepository",
+          "severity": "CRITICAL"
+        }
+      }
+    ]
+  }'
+
+2. Verify OpenTelemetry Initialization in GKE Logs
+Run this command in GCP Cloud Shell to verify that OpenTelemetry initialized inside your container:
+
+bash
+
+
+kubectl logs -l app=oneshield-api-gateway --tail=100 | grep "OpenTelemetry Exporter"
+
+3. View Distributed Traces in GCP Cloud Trace Explorer
+Open GCP Console: https://console.cloud.google.com/traces/explorer
+Ensure project project-644b97eb-9375-4ec7-82e is selected.
+Under Trace Explorer, click on any recent trace dot to view:
+End-to-end request latency for POST /v1/scan-handler
+HTTP REST call latencies to EPSS & CISA KEV feeds
+LLM reachability execution spans with $0 vendor licensing cost!
+
+
+1. curl Command (Replace sha256:full_enterprise_audit_004 with your target image_sha)
+bash
+
+
+curl http://136.69.14.97/v1/scan-status/sha256:full_enterprise_audit_004
+(Note: The endpoint supports both raw colons sha256:full_enterprise_audit_004 and URL-encoded colons sha256%3Afull_enterprise_audit_004).
+
+Local Uvicorn Command	Live GCP Equivalent Command
+curl http://127.0.0.1:8000/health	curl http://136.69.14.97/health
+curl http://127.0.0.1:8000/v1/scan-status/{image_sha}	curl http://136.69.14.97/v1/scan-status/sha256:full_enterprise_audit_004
+
+2. GKE Container Pod Status (kubectl)
+Check Pod Readiness & IP Assignments:
+Equivalent to local Get-Process:
+
+bash
+
+
+kubectl get pods -l app=oneshield-api-gateway -o wide
+Expected Output: Status Running with 1/1 READY pods.
+
+Check Deployment Rollout Status:
+bash
+
+
+kubectl rollout status deployment/oneshield-api-gateway
+
+3. Streaming Live Logs (GCP Cloud Logging & kubectl)
+Stream Live Pod Logs in Cloud Shell:
+Equivalent to terminal stdout logs:
+
+bash
+
+
+kubectl logs -l app=oneshield-api-gateway --tail=100 -f
+Query Logs via gcloud CLI:
+bash
+
+
+gcloud logging read "resource.type=k8s_container AND resource.labels.pod_name:oneshield-api-gateway" \
+  --limit=20 --format="json"
+
+4. GCP Load Balancer & Cloud Armor WAF Backend Health
+Check if Google Cloud Load Balancer backend instances are passing HTTP health probes:
+
+bash
+
+
+gcloud compute backend-services list --filter="name~oneshield"
+
+Step 1: Check Execution Verdict API
+Query your scan status endpoint right now to see the COMPLETED verdict and action log:
+
+bash
+
+
+curl http://136.69.14.97/v1/scan-status/sha256:otel_live_test_001
+
+List all LLM Models:
+===================
+kubectl exec deployment/oneshield-api-gateway -- sh -c 'curl -s https://api.openai.com/v1/models -H "Authorization: Bearer $OPENAI_API_KEY"' | grep -o 
+
+Oneshied App pod readiness:
+==========================
+Run this command in GCP Cloud Shell to watch the new pods pass readiness probes:
+
+bash
+
+
+kubectl get pods -l app=oneshield-api-gateway -w
+
+Payloads:
+=========
+Below are realistic, production-grade SAST, DAST, and Container SCA webhook payloads tailored for Investment Banking, Private Banking / Wealth Management, and Corporate Banking & Treasury Services.
+
+You can post these directly to your live ShiftShield GKE Gateway (http://136.69.14.97/v1/scan-handler):
+
+1. ?? Investment Banking & Capital Markets
+Focus Area: High-Frequency Trading (HFT), FIX Protocol, Algorithmic Trading Engines, Market Data Streams.
+bash
+
+
+curl -X POST http://136.69.14.97/v1/scan-handler \
+  -H "Content-Type: application/json" \
+  -d '{
+    "image_sha": "sha256:inv_bank_hft_engine_v3",
+    "domain": "InvestmentBanking-CapitalMarkets",
+    "repo_owner": "jagat1980",
+    "repo_name": "hft-execution-service",
+    "base_branch": "main",
+    "scan_data": [
+      {
+        "tool": "sast-sonar",
+        "issue": {
+          "ruleId": "JAVA-S2077",
+          "packageName": "com.bank.hft.order.OrderRepository",
+          "severity": "CRITICAL",
+          "target_file": "src/main/java/com/bank/hft/order/OrderRepository.java",
+          "line": 142,
+          "description": "SQL Injection in FIX protocol order execution query statement."
+        }
+      },
+      {
+        "tool": "dast-zap",
+        "issue": {
+          "alertId": "ZAP-40012",
+          "alert": "FIX Protocol Session Hijacking & Missing TLS Mutual Authentication",
+          "risk": "High",
+          "url": "https://hft-gateway.internal.bank/v1/orders/execute",
+          "description": "TLS client certificate verification disabled on Fix Order Gateway endpoint."
+        }
+      },
+      {
+        "tool": "sca-trivy",
+        "issue": {
+          "vulnerabilityId": "CVE-2023-44487",
+          "pkgName": "io.netty:netty-codec-http2",
+          "installedVersion": "4.1.92.Final",
+          "fixedVersion": "4.1.100.Final",
+          "severity": "HIGH",
+          "description": "HTTP/2 Rapid Reset DDoS vulnerability in trading stream listener."
+        }
+      }
+    ]
+  }'
+2. ?? Private Banking & Wealth Management
+Focus Area: High-Net-Worth Individual (HNWI) PII Protection, Portfolio Advisory, Tax Reporting, Compliance.
+bash
+
+
+curl -X POST http://136.69.14.97/v1/scan-handler \
+  -H "Content-Type: application/json" \
+  -d '{
+    "image_sha": "sha256:priv_bank_wealth_portal_v2",
+    "domain": "PrivateBanking-WealthManagement",
+    "repo_owner": "jagat1980",
+    "repo_name": "wealth-advisor-portal",
+    "base_branch": "main",
+    "scan_data": [
+      {
+        "tool": "sast-checkmarx",
+        "issue": {
+          "ruleId": "JS-XSS-001",
+          "packageName": "src/components/PortfolioAdvisor.tsx",
+          "severity": "HIGH",
+          "target_file": "src/components/PortfolioAdvisor.tsx",
+          "line": 88,
+          "description": "Reflected Cross-Site Scripting (XSS) in HNWI client portfolio statement rendering."
+        }
+      },
+      {
+        "tool": "dast-burp",
+        "issue": {
+          "alertId": "BURP-IDOR-808",
+          "alert": "Insecure Direct Object Reference (IDOR) in Client Document Vault",
+          "risk": "Critical",
+          "url": "https://privatebanking.internal.bank/api/v1/tax-documents/hnwi_client_1099.pdf",
+          "description": "Unauthenticated access to private client offshore tax statements via IDOR."
+        }
+      },
+      {
+        "tool": "sca-snyk",
+        "issue": {
+          "vulnerabilityId": "CVE-2024-21626",
+          "pkgName": "runc",
+          "installedVersion": "1.1.11",
+          "fixedVersion": "1.1.12",
+          "severity": "CRITICAL",
+          "description": "runc container breakout vulnerability in confidential wealth computing node."
+        }
+      }
+    ]
+  }'
+3. ?? Corporate Banking & Treasury Services
+Focus Area: SWIFT / ISO 20022 Payment Rails, Automated Clearing House (ACH), Trade Finance, Letters of Credit.
+bash
+
+
+curl -X POST http://136.69.14.97/v1/scan-handler \
+  -H "Content-Type: application/json" \
+  -d '{
+    "image_sha": "sha256:corp_bank_swift_router_v4",
+    "domain": "CorporateBanking-TreasuryServices",
+    "repo_owner": "jagat1980",
+    "repo_name": "swift-payment-router",
+    "base_branch": "main",
+    "scan_data": [
+      {
+        "tool": "sast-fortify",
+        "issue": {
+          "ruleId": "JAVA-XXE-201",
+          "packageName": "com.bank.treasury.swift.Iso20022Parser",
+          "severity": "CRITICAL",
+          "target_file": "src/main/java/com.bank.treasury.swift.Iso20022Parser.java",
+          "line": 215,
+          "description": "XML External Entity (XXE) Injection in ISO 20022 XML payment parsing engine."
+        }
+      },
+      {
+        "tool": "dast-zap",
+        "issue": {
+          "alertId": "ZAP-90033",
+          "alert": "Insufficient Anti-CSRF Token Validation on Wire Batch Release",
+          "risk": "High",
+          "url": "https://treasury.internal.bank/v1/batch-payments/release",
+          "description": "Missing Anti-CSRF header on corporate multi-million wire release endpoint."
+        }
+      },
+      {
+        "tool": "sca-trivy",
+        "issue": {
+          "vulnerabilityId": "CVE-2023-34034",
+          "pkgName": "org.springframework.security:spring-security-web",
+          "installedVersion": "5.8.0",
+          "fixedVersion": "5.8.5",
+          "severity": "HIGH",
+          "description": "Spring Security broken authorization pattern match bypass on ACH wire API."
+        }
+      }
+    ]
+  }'
+4. ?? Retail & Consumer Banking
+Focus Area: Core Deposit Accounts, ATM Operations, Credit Card Processing (PCI-DSS), Open Banking APIs.
+bash
+
+
+curl -X POST http://136.69.14.97/v1/scan-handler \
+  -H "Content-Type: application/json" \
+  -d '{
+    "image_sha": "sha256:retail_bank_cards_v1",
+    "domain": "RetailBanking-ConsumerBanking",
+    "repo_owner": "jagat1980",
+    "repo_name": "open-banking-api",
+    "base_branch": "main",
+    "scan_data": [
+      {
+        "tool": "sast-sonar",
+        "issue": {
+          "ruleId": "JAVA-S5304",
+          "packageName": "com.bank.cards.PanStorageService",
+          "severity": "CRITICAL",
+          "target_file": "src/main/java/com/bank/cards/PanStorageService.java",
+          "line": 64,
+          "description": "Plaintext Primary Account Number (PAN) credit card logging violating PCI-DSS."
+        }
+      },
+      {
+        "tool": "dast-zap",
+        "issue": {
+          "alertId": "ZAP-10045",
+          "alert": "Open Banking OAuth2 Token Leakage in Referer Header",
+          "risk": "Medium",
+          "url": "https://openbanking.internal.bank/oauth/authorize",
+          "description": "OAuth authorization token exposed in plain HTTP referer header."
+        }
+      },
+      {
+        "tool": "sca-trivy",
+        "issue": {
+          "vulnerabilityId": "CVE-2023-38545",
+          "pkgName": "curl",
+          "installedVersion": "8.3.0-r0",
+          "fixedVersion": "8.4.0-r0",
+          "severity": "HIGH",
+          "description": "SOCKS5 heap buffer overflow in curl container runtime library."
+        }
+      }
+    ]
+  }'
+?? How ShiftShield Handles These Payloads
+When you submit any of these payloads:
+
+Gateway: FastAPI assigns domain tagging (e.g. domain: CorporateBanking-TreasuryServices).
+Multi-Agent Triage: SAST, DAST, and SCA agents parse tool-specific schemas in parallel.
+Threat Intel: EPSS probabilities and CISA KEV feeds are checked automatically.
+Reachability Analysis: gpt-5.6-sol / gpt-4o evaluates code reachability and generates domain-tailored patch artifacts.
+Governance: Jira tickets are categorized automatically under domain-specific project keys!
