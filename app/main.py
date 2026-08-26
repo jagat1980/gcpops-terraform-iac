@@ -6,6 +6,7 @@ from urllib.parse import unquote
 from dotenv import load_dotenv
 from fastapi import FastAPI, BackgroundTasks, HTTPException, Depends, Security
 from fastapi.security import APIKeyHeader
+from app.otel_tracer import setup_gcp_opentelemetry
 from pydantic import BaseModel
 from langchain_core.runnables import RunnableConfig
 
@@ -14,6 +15,9 @@ from app.graph import app_orchestration_agent
 
 # Initialize environment variables
 load_dotenv()
+
+# Initialize GCP OpenTelemetry Cloud Trace Instrumentation
+setup_gcp_opentelemetry(app)
 
 # Configure logging
 logger = logging.getLogger("vulnerability-lifecycle-gateway")
@@ -25,7 +29,7 @@ workflow_execution_store: Dict[str, Dict[str, Any]] = {}
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 async def verify_api_key(api_key: str = Security(api_key_header)):
-    """Validates the request API key against ONESHIELD_API_KEY if configured."""
+    """Validates the request API key against ShiftSHIELD_API_KEY if configured."""
     expected_key = os.environ.get("ONESHIELD_API_KEY", "")
     if not expected_key:
         return  # No key configured = auth disabled (dev mode)
@@ -33,7 +37,7 @@ async def verify_api_key(api_key: str = Security(api_key_header)):
         raise HTTPException(status_code=403, detail="Invalid API key")
 
 app = FastAPI(
-    title="OneShield Vulnerability Engine Gateway",
+    title="ShiftShield Vulnerability Engine Gateway",
     version="1.0.0",
     description="Multi-agent orchestration gateway for enterprise vulnerability remediation."
 )
