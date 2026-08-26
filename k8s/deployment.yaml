@@ -54,6 +54,31 @@ spec:
               name: oneshield-secrets
               key: OPENAI_API_KEY
               optional: true
+        # 📋 Jira Cloud Governance Integration Credentials
+        - name: JIRA_URL
+          valueFrom:
+            secretKeyRef:
+              name: oneshield-secrets
+              key: JIRA_URL
+              optional: true
+        - name: JIRA_EMAIL
+          valueFrom:
+            secretKeyRef:
+              name: oneshield-secrets
+              key: JIRA_EMAIL
+              optional: true
+        - name: JIRA_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: oneshield-secrets
+              key: JIRA_API_TOKEN
+              optional: true
+        - name: JIRA_PROJECT_KEY
+          valueFrom:
+            secretKeyRef:
+              name: oneshield-secrets
+              key: JIRA_PROJECT_KEY
+              optional: true
         # 🤖 Model Tier Configurations (GCP Enterprise AI Tiering)
         - name: LLM_MODEL_HIGH_REASONING
           value: "gpt-5.6-sol"

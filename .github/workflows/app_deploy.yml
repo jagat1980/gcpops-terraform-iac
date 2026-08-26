@@ -78,12 +78,16 @@ jobs:
         cluster_name: 'oneshield-gke-cluster'
         location: 'us-central1'
 
-    # 10. Create Kubernetes Secret for Application API Keys
+    # 10. Create Kubernetes Secret for Application API Keys & Jira Governance Credentials
     - name: Create Kubernetes Secrets
       run: |
         kubectl create secret generic oneshield-secrets \
           --from-literal=ONESHIELD_API_KEY="${{ secrets.ONESHIELD_API_KEY }}" \
           --from-literal=OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
+          --from-literal=JIRA_URL="${{ secrets.JIRA_URL }}" \
+          --from-literal=JIRA_EMAIL="${{ secrets.JIRA_EMAIL }}" \
+          --from-literal=JIRA_API_TOKEN="${{ secrets.JIRA_API_TOKEN }}" \
+          --from-literal=JIRA_PROJECT_KEY="${{ secrets.JIRA_PROJECT_KEY }}" \
           --dry-run=client -o yaml | kubectl apply -f -
 
     # 🔄 11. AUTOMATED HELM DEPLOYMENT: Pillar 3 (Trivy-Operator) & Pillar 4 (Kyverno Admission Controller)
