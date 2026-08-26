@@ -263,21 +263,22 @@ async def jira_creation_agent(state: AgentState) -> Dict[str, Any]:
     )
     
     if has_critical:
-        from app.jira_client import OneShieldJiraClient
-        jira_client = OneShieldJiraClient()
+        from app.jira_client import create_jira_block_issue
         first_crit = next(f for f in state.triaged_findings if f.severity == "CRITICAL")
         
-        ticket = await jira_client.create_remediation_ticket(
-            project_key="SEC",
-            summary=f"[OneShield] Critical Reachable Vulnerability: {first_crit.finding_id}",
-            description=f"Automated critical vulnerability finding in {first_crit.target_file_path}.",
-            issue_type="Bug"
+        jira_url = await create_jira_block_issue(
+            cve_id=first_crit.finding_id,
+            package_name=first_crit.package_name,
+            domain=state.domain,
+            target_file=first_crit.target_file_path,
+            analysis_text=f"Automated critical reachability verdict for {first_crit.finding_id} in {first_crit.target_file_path}."
         )
         
+        ticket_key = jira_url.split("/")[-1] if "/browse/" in jira_url else "SEC-FALLBACK"
         governance.status = "PENDING_APPROVAL"
-        governance.jira_ticket_key = ticket["key"]
-        governance.jira_ticket_url = ticket["url"]
-        logger.info(f"📋 Jira Ticket Created: {ticket['key']} -> {ticket['url']}")
+        governance.jira_ticket_key = ticket_key
+        governance.jira_ticket_url = jira_url
+        logger.info(f"📋 Jira Ticket Created: {ticket_key} -> {jira_url}")
 
     return {
         "governance_gate": governance,
