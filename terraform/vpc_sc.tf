@@ -16,8 +16,8 @@ resource "google_access_context_manager_service_perimeter" "banking_perimeter" {
   use_explicit_dry_run_spec = true
 
   spec {
-    # 1. Projects inside security boundary
-    projects = [
+    # 1. Projects inside security boundary (resources argument in Google Provider)
+    resources = [
       "projects/${data.google_project.current.number}"
     ]
 
