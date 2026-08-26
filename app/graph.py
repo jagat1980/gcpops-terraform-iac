@@ -30,11 +30,11 @@ class StructuredPatchOutput(BaseModel):
     remediated_code_block: str = Field(description="Refactored code snippet passing secure design standards")
     explanation: str = Field(description="Technical engineering justification for the patch pattern used")
 
-def get_task_specific_llm(task_type: str, finding: Optional[CodeAnalysisFinding] = None) -> ChatOpenAI:
-    """Factory selecting model tier based on task complexity & tech stack layer."""
-    high_model = os.environ.get("LLM_MODEL_HIGH_REASONING", "gpt-4o")
-    mid_model  = os.environ.get("LLM_MODEL_WORKHORSE", "gpt-4o-mini")
-    low_model  = os.environ.get("LLM_MODEL_BUDGET", "gpt-4o-mini")
+def get_task_specific_llm(task_type: str = "workhorse", finding: Optional[CodeAnalysisFinding] = None) -> ChatOpenAI:
+    """Factory helper returning a task-optimized model tier."""
+    high_model = os.environ.get("LLM_MODEL_HIGH_REASONING", "gpt-5.6-sol")
+    mid_model  = os.environ.get("LLM_MODEL_WORKHORSE", "gpt-5.6-terra")
+    low_model  = os.environ.get("LLM_MODEL_BUDGET", "gpt-5.6-luna")
 
     if task_type == "PATCH_GENERATION":
         return ChatOpenAI(model=high_model, temperature=0)

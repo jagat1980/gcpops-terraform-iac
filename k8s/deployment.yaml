@@ -54,13 +54,13 @@ spec:
               name: oneshield-secrets
               key: OPENAI_API_KEY
               optional: true
-        # 🤖 Model Tier Configurations
+        # 🤖 Model Tier Configurations (GCP Enterprise AI Tiering)
         - name: LLM_MODEL_HIGH_REASONING
-          value: "gpt-4o"
+          value: "gpt-5.6-sol"
         - name: LLM_MODEL_WORKHORSE
-          value: "gpt-4o-mini"
+          value: "gpt-5.6-terra"
         - name: LLM_MODEL_BUDGET
-          value: "gpt-4o-mini"
+          value: "gpt-5.6-luna"
 
         resources:
           requests:

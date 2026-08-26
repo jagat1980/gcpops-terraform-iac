@@ -36,10 +36,8 @@ spec:
       port: 8000
 
   egress:
-  # Allow DNS resolution to CoreDNS / kube-dns (Port 53)
-  - to:
-    - namespaceSelector: {}
-    ports:
+  # Allow DNS resolution to CoreDNS / kube-dns in kube-system (Port 53)
+  - ports:
     - protocol: UDP
       port: 53
     - protocol: TCP
