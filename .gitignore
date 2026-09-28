@@ -9,3 +9,7 @@ build/
 .idea/
 .vscode/
 Architecture_Flow.md
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
