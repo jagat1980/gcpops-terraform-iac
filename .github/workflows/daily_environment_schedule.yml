@@ -1,0 +1,64 @@
+# .github/workflows/daily_environment_schedule.yml
+name: "Daily Cloud Lifecycle & Billing Control"
+
+on:
+  schedule:
+    # Automated safety net: Monday through Friday at 19:00 UTC (2:00 PM EST)
+    - cron: "0 19 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Select Environment Action"
+        required: true
+        default: "teardown"
+        type: choice
+        options:
+          - "teardown"
+          - "startup"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  manage-environment:
+    name: "Execute Daily Cloud Lifecycle"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔐 Authenticate to Google Cloud (Keyless OIDC)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: 'projects/703950286847/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          service_account: 'oneshield-terraform-sa@project-644b97eb-9375-4ec7-82e.iam.gserviceaccount.com'
+
+      - name: 🛠️ Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.5.7"
+
+      - name: 🔍 Resolve Target Action
+        id: resolve
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "ACTION=teardown" >> $GITHUB_ENV
+          else
+            echo "ACTION=${{ github.event.inputs.action }}" >> $GITHUB_ENV
+          fi
+
+      - name: 🛑 Ephemeral Teardown (enable_ephemeral_compute=false)
+        if: env.ACTION == 'teardown'
+        run: |
+          cd terraform
+          terraform init
+          terraform apply -var="enable_ephemeral_compute=false" -auto-approve
+
+      - name: 🌅 Ephemeral Provisioning (enable_ephemeral_compute=true)
+        if: env.ACTION == 'startup'
+        run: |
+          cd terraform
+          terraform init
+          terraform apply -var="enable_ephemeral_compute=true" -auto-approve

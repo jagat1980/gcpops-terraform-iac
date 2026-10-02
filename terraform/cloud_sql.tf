@@ -8,7 +8,8 @@ resource "google_sql_database_instance" "oneshield_db_instance" {
   settings {
     # Right-sized for cost efficiency (1 vCPU, 3.75GB RAM — 50% cost reduction)
     # For Dev/POC testing, tier = "db-f1-micro" cuts cost by 85% (~$7.50/mo)
-    tier = "db-custom-1-3840"
+    tier              = "db-custom-1-3840"
+    activation_policy = var.enable_ephemeral_compute ? "ALWAYS" : "NEVER"
 
     backup_configuration {
       enabled    = true

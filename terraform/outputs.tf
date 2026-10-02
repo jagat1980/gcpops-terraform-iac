@@ -5,12 +5,12 @@ output "artifact_registry_url" {
 }
 
 output "gke_cluster_name" {
-  value       = google_container_cluster.oneshield_gke.name
+  value       = try(google_container_cluster.oneshield_gke[0].name, "DECOMMISSIONED_LOGOFF")
   description = "GKE Cluster Name."
 }
 
 output "gke_cluster_endpoint" {
-  value       = google_container_cluster.oneshield_gke.endpoint
+  value       = try(google_container_cluster.oneshield_gke[0].endpoint, "DECOMMISSIONED_LOGOFF")
   description = "GKE Cluster Endpoint."
 }
 

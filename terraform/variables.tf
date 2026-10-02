@@ -39,3 +39,9 @@ variable "access_policy_id" {
   description = "Optional GCP Access Context Manager Policy ID for VPC Service Controls."
   default     = ""
 }
+
+variable "enable_ephemeral_compute" {
+  type        = bool
+  description = "Controls whether billable ephemeral compute resources (GKE cluster and Cloud NAT) are active. Set to false during daily logoff to stop compute billing while preserving state, storage, and IAM."
+  default     = true
+}
