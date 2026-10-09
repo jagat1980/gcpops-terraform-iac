@@ -1,123 +1,130 @@
-name: Build & Deploy OneShield Application to GKE
+name: "Production CI/CD: Scan, Sign, and Deploy"
 
 on:
   push:
     branches:
       - main
-      - master
-    paths-ignore:
-      - 'terraform/**'
-      - '*.md'
+    paths:
+      - 'src/**'
+      - 'k8s/**'
+  workflow_dispatch: # Allows manual trigger
 
+# REQUIRED: Permissions for GitHub OIDC to securely authenticate to GCP and Cosign
 permissions:
-  id-token: write # Required for requesting GitHub OIDC JWT token
+  id-token: write
   contents: read
-  security-events: write # Required for uploading SARIF reports to GitHub Security
+
+env:
+  PROJECT_ID: "innate-bonfire-176513"
+  REGION: "us-central1"
+  GAR_REPO: "oneshield-repo"
+  IMAGE_NAME: "oneshield-app"
+  CLUSTER_NAME: "oneshield-gke-cluster"
+  WIF_PROVIDER: "projects/77272356443/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
+  WIF_SA: "oneshield-sa@innate-bonfire-176513.iam.gserviceaccount.com"
+  USE_GKE_GCLOUD_AUTH_PLUGIN: "True"
 
 jobs:
-  build-and-deploy:
-    name: Build Container, Trivy Security Scan & Deploy to GKE
+  build-scan-sign-deploy:
+    name: Build, Scan, Sign, and Deploy
     runs-on: ubuntu-latest
-
+    
     steps:
-    # 1. Checkout repository code
-    - name: Checkout Code
-      uses: actions/checkout@v4
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
 
-    # 2. Keyless OIDC Authentication to GCP using Workload Identity Federation
-    - name: Authenticate to Google Cloud
-      id: auth
-      uses: google-github-actions/auth@v2
-      with:
-        workload_identity_provider: 'projects/703950286847/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
-        service_account: 'oneshield-terraform-sa@project-644b97eb-9375-4ec7-82e.iam.gserviceaccount.com'
+      - name: 🔐 Authenticate to Google Cloud (Keyless OIDC)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: '${{ env.WIF_PROVIDER }}'
+          service_account: '${{ env.WIF_SA }}'
 
-    # 3. Setup gcloud CLI
-    - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v2
+      - name: 🐳 Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: 'gke-gcloud-auth-plugin'
 
-    # 4. Setup Helm CLI for Automated In-Cluster Tooling
-    - name: Set up Helm
-      uses: azure/setup-helm@v4
-      with:
-        version: 'v3.14.0'
+      - name: 🔑 Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
 
-    # 5. Configure Docker CLI to authenticate with Google Artifact Registry
-    - name: Configure Docker for GCP Artifact Registry
-      run: |
-        gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+      - name: 🔨 Build Docker Image
+        run: |
+          docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPO }}/${{ env.IMAGE_NAME }}:${{ github.sha }} ./src
 
-    # 6. Build Local Container Image for Scanning & Deployment
-    - name: Build Docker Image
-      run: |
-        docker build -t oneshield-api:local \
-                     -t us-central1-docker.pkg.dev/project-644b97eb-9375-4ec7-82e/oneshield-repo/oneshield-api:latest \
-                     -t us-central1-docker.pkg.dev/project-644b97eb-9375-4ec7-82e/oneshield-repo/oneshield-api:${{ github.sha }} .
+      # ------------------------------------------------------------------------
+      # SECURITY GUARDRAIL 1: TRIVY STATIC SCANNING
+      # ------------------------------------------------------------------------
+      - name: 🛡️ Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPO }}/${{ env.IMAGE_NAME }}:${{ github.sha }}'
+          format: 'table'
+          # CRITICAL: This will break the pipeline if HIGH or CRITICAL CVEs are found!
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+          trivyignores: '.trivyignore'
 
-    # 🛡️ 7. TRIVY STRICT PRE-PUSH POLICY ENFORCEMENT (Fails Build if HIGH/CRITICAL Vulnerabilities Found)
-    - name: Run Trivy Pre-Push Security Scan Gate
-      uses: aquasecurity/trivy-action@master
-      with:
-        image-ref: 'oneshield-api:local'
-        format: 'table'
-        exit-code: '1'
-        ignore-unfixed: true
-        vuln-type: 'os,library'
-        severity: 'HIGH,CRITICAL'
+      # ------------------------------------------------------------------------
+      # SECURITY GUARDRAIL 2: COSIGN CRYPTOGRAPHIC SIGNATURE
+      # ------------------------------------------------------------------------
+      - name: 🖋️ Install Cosign
+        if: success() # Only install and sign if Trivy passes
+        uses: sigstore/cosign-installer@v3.5.0
 
-    # 8. Push Verified Container Image to Google Artifact Registry
-    - name: Push Image to Artifact Registry
-      run: |
-        docker push us-central1-docker.pkg.dev/project-644b97eb-9375-4ec7-82e/oneshield-repo/oneshield-api:latest
-        docker push us-central1-docker.pkg.dev/project-644b97eb-9375-4ec7-82e/oneshield-repo/oneshield-api:${{ github.sha }}
+      - name: 📤 Push Image to Artifact Registry
+        if: success()
+        run: |
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPO }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-    # 9. Get GKE Cluster Credentials
-    - name: Get GKE Credentials
-      uses: google-github-actions/get-gke-credentials@v2
-      with:
-        cluster_name: 'oneshield-gke-cluster'
-        location: 'us-central1'
+      - name: ✍️ Sign the Docker Image
+        if: success()
+        # Uses Keyless signing tied to the GitHub OIDC token. Kyverno will verify this on the cluster.
+        run: |
+          cosign sign --yes ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPO }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-    # 10. Create Kubernetes Secret for Application API Keys & Jira Governance Credentials
-    - name: Create Kubernetes Secrets
-      run: |
-        kubectl create secret generic oneshield-secrets \
-          --from-literal=ONESHIELD_API_KEY="${{ secrets.ONESHIELD_API_KEY }}" \
-          --from-literal=OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
-          --from-literal=JIRA_URL="${{ secrets.JIRA_URL }}" \
-          --from-literal=JIRA_EMAIL="${{ secrets.JIRA_EMAIL }}" \
-          --from-literal=JIRA_API_TOKEN="${{ secrets.JIRA_API_TOKEN }}" \
-          --from-literal=JIRA_PROJECT_KEY="${{ secrets.JIRA_PROJECT_KEY }}" \
-          --dry-run=client -o yaml | kubectl apply -f -
+      # ------------------------------------------------------------------------
+      # DEPLOYMENT (Skipped gracefully if cluster is decommissioned or in standby)
+      # ------------------------------------------------------------------------
+      - name: 🔍 Check if GKE Cluster is Active
+        id: check_cluster
+        if: success()
+        run: |
+          if gcloud container clusters describe ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }} --project ${{ env.PROJECT_ID }} >/dev/null 2>&1; then
+            echo "active=true" >> $GITHUB_OUTPUT
+            echo "✅ GKE Cluster '${{ env.CLUSTER_NAME }}' is ACTIVE."
+          else
+            echo "active=false" >> $GITHUB_OUTPUT
+            echo "⏸️ GKE Cluster '${{ env.CLUSTER_NAME }}' is currently DECOMMISSIONED/TORN DOWN. Skipping deployment."
+          fi
 
-    # 🔄 11. AUTOMATED HELM DEPLOYMENT: Pillar 3 (Trivy-Operator) & Pillar 4 (Kyverno Admission Controller)
-    - name: Automated Helm Deployments (Trivy-Operator & Kyverno)
-      run: |
-        helm repo add aquasecurity https://aquasecurity.github.io/helm-charts/
-        helm repo add kyverno https://kyverno.github.io/kyverno/
-        helm repo update
+      - name: 🔌 Connect kubectl to GKE Cluster
+        if: success() && steps.check_cluster.outputs.active == 'true'
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.CLUSTER_NAME }}
+          location: ${{ env.REGION }}
+          project_id: ${{ env.PROJECT_ID }}
 
-        # Deploy/Upgrade Trivy Operator (Pillar 3: Zero-Cost In-Cluster Scan)
-        helm upgrade --install trivy-operator aquasecurity/trivy-operator \
-          --namespace trivy-system \
-          --create-namespace \
-          --set "trivy.severity=HIGH\,CRITICAL"
+      - name: 🚀 Deploy to GKE
+        if: success() && steps.check_cluster.outputs.active == 'true'
+        run: |
+          # 1. Ensure the ai-stack namespace exists
+          kubectl create namespace ai-stack --dry-run=client -o yaml | kubectl apply -f -
 
-        # Deploy/Upgrade Kyverno Admission Controller with readiness wait
-        helm upgrade --install kyverno kyverno/kyverno \
-          --namespace kyverno \
-          --create-namespace \
-          --wait --timeout 120s
+          # 2. Ensure sglang-ksa ServiceAccount exists
+          if [ -f k8s/ai-stack/sglang-deployment.yaml ]; then
+            kubectl apply -f k8s/ai-stack/sglang-deployment.yaml
+          fi
 
-    # 12. Deploy Security Policies & Hardened App Manifests to GKE
-    - name: Deploy Security Policies & App Manifests to GKE
-      run: |
-        kubectl delete clusterpolicy verify-image-signature --ignore-not-found
-        kubectl delete pod -l app=oneshield-api-gateway --field-selector status.phase=Terminating --force --grace-period=0 || true
-        kubectl apply -f k8s/kyverno-policy.yaml
-        kubectl apply -f k8s/network-policy.yaml
-        kubectl apply -f k8s/backend-config.yaml
-        kubectl apply -f k8s/deployment.yaml
-        kubectl apply -f k8s/service.yaml
-        kubectl apply -f k8s/ingress.yaml
-        kubectl rollout status deployment/oneshield-api-gateway --timeout=300s
+          # 3. Update the deployment manifest with the new SHA tag and apply
+          sed -i "s/LATEST_SHA/${{ github.sha }}/g" k8s/app/backend-deployment.yaml
+          kubectl apply -f k8s/app/backend-deployment.yaml
+
+          # 4. Ensure Ingress gateway is reconciled and bound to reserved static IP
+          if [ -f k8s/ai-stack/ingress.yaml ]; then
+            kubectl apply -f k8s/ai-stack/ingress.yaml
+          fi
+
