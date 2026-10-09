@@ -1,0 +1,70 @@
+name: "Teardown: Full GCP Environment Destruction"
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_project:
+        description: "CRITICAL: Type the exact GCP Project ID ('innate-bonfire-176513') to confirm permanent teardown:"
+        required: true
+        type: string
+
+# Permissions for Keyless Workload Identity Federation OIDC
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  PROJECT_ID: "innate-bonfire-176513"
+  REGION: "us-central1"
+  WIF_PROVIDER: "projects/77272356443/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
+  WIF_SA: "oneshield-sa@innate-bonfire-176513.iam.gserviceaccount.com"
+  USE_GKE_GCLOUD_AUTH_PLUGIN: "True"
+
+jobs:
+  validate-and-teardown:
+    name: "Permanent Infrastructure Teardown"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      # ------------------------------------------------------------------------
+      # SAFETY GATE: Strict Project ID Confirmation Check
+      # ------------------------------------------------------------------------
+      - name: 🛡️ Safety Confirmation Verification
+        run: |
+          echo "Verifying teardown confirmation input..."
+          if [ "${{ github.event.inputs.confirm_project }}" != "${{ env.PROJECT_ID }}" ]; then
+            echo "❌ ERROR: Confirmation input '${{ github.event.inputs.confirm_project }}' does not match '${{ env.PROJECT_ID }}'."
+            echo "Teardown aborted to protect live infrastructure."
+            exit 1
+          fi
+          echo "✅ Confirmation verified: Target project is ${{ env.PROJECT_ID }}."
+
+      # ------------------------------------------------------------------------
+      # AUTHENTICATION: Keyless OIDC into GCP
+      # ------------------------------------------------------------------------
+      - name: 🔐 Authenticate to Google Cloud (Keyless OIDC)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: '${{ env.WIF_PROVIDER }}'
+          service_account: '${{ env.WIF_SA }}'
+
+      - name: ☁️ Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: 'gke-gcloud-auth-plugin'
+
+      - name: 🛠️ Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.5"
+
+      # ------------------------------------------------------------------------
+      # EXECUTE TEARDOWN SCRIPT
+      # ------------------------------------------------------------------------
+      - name: 💥 Execute Full Environment Teardown Script
+        run: |
+          chmod +x scripts/teardown_all_resources.sh
+          bash scripts/teardown_all_resources.sh --force
